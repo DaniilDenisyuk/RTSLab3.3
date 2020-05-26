@@ -84,12 +84,12 @@ public class MainActivity extends AppCompatActivity {
             delta = new StringBuilder(String.format("Похибка: %d", result.fitness));
         }
         for (int i = 0; i < result.genes.length; i++) {
-            text.append(String.format("x%d = %d ", i, result.genes[i]));
+            text.append(String.format("x%d = %d; ", i+1, result.genes[i]));
         }
         resultText.setText(text);
         deltaText.setText(delta);
         bestPercent.setText("Відсоток мутацій: " + ga.mutation_percent);
-        timeText.setText("Час виконання: " + (System.currentTimeMillis() - m));
+        timeText.setText("Час виконання: " + (System.currentTimeMillis() - m) + " ms");
     }
 }
 
@@ -127,6 +127,7 @@ class GeneticAlgorithm{
     private FunctionToSolve Function;
     public float mutation_percent;
     private Chromosome closestSolution;
+    private Random random = new Random();
 
     public GeneticAlgorithm(int max, int min, FunctionToSolve func, int population_size){
         Max = max;
@@ -152,7 +153,7 @@ class GeneticAlgorithm{
                 crossovers();
                 mutations(mutation_percent);
             }
-            mutation_percent+= 0.5F;
+            mutation_percent+= 2.5F;
         }
         isPrecise = false;
         return closestSolution;
@@ -177,7 +178,6 @@ class GeneticAlgorithm{
     }
 
     private int randGene(){
-        Random random = new Random();
         return random.nextInt(Max-Min) + Min;
     }
 
@@ -188,7 +188,6 @@ class GeneticAlgorithm{
     }
 
     private void selectPopulation(){
-        Random random = new Random();
         int selN = random.nextInt(2);
         if(selN == 0){
             roulette();
@@ -196,14 +195,18 @@ class GeneticAlgorithm{
         else {
             tournament();
         }
-        sortByFitness();
     }
 
     private void crossovers(){
-        Random random;
         Chromosome[] newPopulation = new Chromosome[POPULATION_SIZE];
         for (int i = 0; i < POPULATION_SIZE/2; i++) {
-            Pair<Chromosome,Chromosome> childs = collisionCrossover(population[i], population[i+POPULATION_SIZE/2]);
+            Pair<Chromosome,Chromosome> childs;
+            int co = random.nextInt(2);
+            if(co == 0){
+                childs = monoCrossover(population[i], population[i+POPULATION_SIZE/2]);
+            }else{
+                childs = duoCrossover(population[i], population[i+POPULATION_SIZE/2]);
+            }
             newPopulation[i] = childs.first;
             newPopulation[i+POPULATION_SIZE/2] = childs.second;
         }
@@ -211,7 +214,6 @@ class GeneticAlgorithm{
     }
 
     private void mutations(float mutPercent){
-        Random random = new Random();
         for (int i = 0; i < POPULATION_SIZE; i++) {
             float prob = random.nextFloat() * 100;
             if(prob < mutPercent){
@@ -221,32 +223,18 @@ class GeneticAlgorithm{
         }
     }
 
-    private Pair<Chromosome,Chromosome> collisionCrossover(Chromosome chr1, Chromosome chr2){
+    private Pair<Chromosome,Chromosome> monoCrossover(Chromosome chr1, Chromosome chr2){
+        int line = randLine(0);
         Chromosome chrChild1 = new Chromosome(CHROMOSOME_SIZE);
         Chromosome chrChild2 = new Chromosome(CHROMOSOME_SIZE);
-        int v1,v2;
-        Function<Chromosome, Integer> calcV = (chr) -> {
-            int v = 0;
-            for (int i = 0; i < CHROMOSOME_SIZE; i++) {
-                v+= chr.genes[i];
-            }
-            return v;
-        };
-        v1 = calcV.apply(chr1);
-        v2 = calcV.apply(chr2);
         for (int i = 0; i < CHROMOSOME_SIZE; i++) {
-            int V1, V2;
-            V1 = (chr1.genes[i] - chr2.genes[i])/(chr1.genes[i] + chr2.genes[i])*v1 + 2*chr2.genes[i]/(chr1.genes[i] + chr2.genes[i])*v2;
-            V2 = 2*chr1.genes[i]/(chr1.genes[i] + chr2.genes[i])*v1 - (chr1.genes[i] - chr2.genes[i])/(chr1.genes[i] + chr2.genes[i])*v2;
-            if(V1>0){
-                chrChild1.genes[i] = chr2.genes[i];
-            } else{
+            if(i<=line){
                 chrChild1.genes[i] = chr1.genes[i];
-            };
-            if(V2>0){
-                chrChild2.genes[i] = chr1.genes[i];
-            }else{
                 chrChild2.genes[i] = chr2.genes[i];
+            }
+            else{
+                chrChild1.genes[i] = chr2.genes[i];
+                chrChild2.genes[i] = chr1.genes[i];
             }
         }
         calcFitness(chrChild1);
@@ -254,8 +242,72 @@ class GeneticAlgorithm{
         return Pair.create(chrChild1,chrChild2);
     }
 
+    private Pair<Chromosome,Chromosome> duoCrossover(Chromosome chr1, Chromosome chr2){
+        int line1 = randLine(1);
+        int line2 = randLine(2);
+        Chromosome chrChild1 = new Chromosome(CHROMOSOME_SIZE);
+        Chromosome chrChild2 = new Chromosome(CHROMOSOME_SIZE);
+        for (int i = 0; i < CHROMOSOME_SIZE; i++) {
+            if(i<=line1||i>line2){
+                chrChild1.genes[i] = chr1.genes[i];
+                chrChild2.genes[i] = chr2.genes[i];
+            }
+            else{
+                chrChild1.genes[i] = chr2.genes[i];
+                chrChild2.genes[i] = chr1.genes[i];
+            }
+        }
+        calcFitness(chrChild1);
+        calcFitness(chrChild2);
+        return Pair.create(chrChild1,chrChild2);
+    }
+
+    private int randLine(int part){
+        int line;
+        if (part == 0){
+            line = random.nextInt(CHROMOSOME_SIZE-1);
+        }else if (part == 1){
+            line = random.nextInt((CHROMOSOME_SIZE+1)/2-1);
+        }else {
+            line = random.nextInt((CHROMOSOME_SIZE-1)/2) + (CHROMOSOME_SIZE+1)/2;
+        }
+        return line;
+    }
+
+//    private Pair<Chromosome,Chromosome> collisionCrossover(Chromosome chr1, Chromosome chr2){
+//        Chromosome chrChild1 = new Chromosome(CHROMOSOME_SIZE);
+//        Chromosome chrChild2 = new Chromosome(CHROMOSOME_SIZE);
+//        int v1,v2;
+//        Function<Chromosome, Integer> calcV = (chr) -> {
+//            int v = 0;
+//            for (int i = 0; i < CHROMOSOME_SIZE; i++) {
+//                v+= chr.genes[i];
+//            }
+//            return v;
+//        };
+//        v1 = calcV.apply(chr1);
+//        v2 = calcV.apply(chr2);
+//        for (int i = 0; i < CHROMOSOME_SIZE; i++) {
+//            float V1, V2;
+//            V1 = (float)(chr1.genes[i] - chr2.genes[i])/(chr1.genes[i] + chr2.genes[i])*v1 + (float)2*chr2.genes[i]/(chr1.genes[i] + chr2.genes[i])*v2;
+//            V2 = (float) 2*chr1.genes[i]/(chr1.genes[i] + chr2.genes[i])*v1 - (float)(chr1.genes[i] - chr2.genes[i])/(chr1.genes[i] + chr2.genes[i])*v2;
+//            if(V1>0){
+//                chrChild1.genes[i] = chr2.genes[i];
+//            } else{
+//                chrChild1.genes[i] = chr1.genes[i];
+//            }
+//            if(V2>0){
+//                chrChild2.genes[i] = chr1.genes[i];
+//            }else{
+//                chrChild2.genes[i] = chr2.genes[i];
+//            }
+//        }
+//        calcFitness(chrChild1);
+//        calcFitness(chrChild2);
+//        return Pair.create(chrChild1,chrChild2);
+//    }
+
     private void roulette(){
-        Random random = new Random();
         float coef=0;
         float prevSum=0;
         Chromosome[] chrs = new Chromosome[POPULATION_SIZE];
@@ -281,12 +333,11 @@ class GeneticAlgorithm{
     }
 
     private void tournament(){
-        Random random = new Random();
         Chromosome[] chrs = new Chromosome[POPULATION_SIZE];
         for (int i = 0; i < POPULATION_SIZE; i++) {
             Chromosome chr1 = population[i];
             Chromosome chr2 = population[random.nextInt(POPULATION_SIZE)];
-            chrs[i] = chr1.fitness<chr2.fitness? chr2:chr1;
+            chrs[i] = chr1.fitness > chr2.fitness? chr2:chr1;
         }
         population = chrs;
     }

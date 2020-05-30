@@ -70,9 +70,17 @@ public class MainActivity extends AppCompatActivity {
             resultText.setText("Виникла помилка: мінімум не може перевищувати максимум");
             return;
         }
-        long m = System.currentTimeMillis();
+
         FunctionToSolve func = new FunctionToSolve(a,b,c,d,Y);
         GeneticAlgorithm ga = new GeneticAlgorithm(GENE_MAX,GENE_MIN,func, POPULATION_SIZE);
+        float avMutationPercent = 0;
+        for (int i = 0; i < 10000; i++) {
+            ga.Start();
+            avMutationPercent += ga.mutation_percent;
+            ga.mutation_percent = 0;
+        }
+        avMutationPercent /= 10000;
+        long m = System.currentTimeMillis();
         Chromosome result = ga.Start();
         StringBuilder text;
         StringBuilder delta;
@@ -88,8 +96,8 @@ public class MainActivity extends AppCompatActivity {
         }
         resultText.setText(text);
         deltaText.setText(delta);
-        bestPercent.setText("Відсоток мутацій: " + ga.mutation_percent);
-        timeText.setText("Час виконання: " + (System.currentTimeMillis() - m) + " ms");
+        bestPercent.setText("Оптимальний відсоток мутацій: " + avMutationPercent);
+        timeText.setText("Час виконання задачі: " + (System.currentTimeMillis() - m) + " ms");
     }
 }
 
